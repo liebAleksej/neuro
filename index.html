@@ -1,104 +1,76 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Оценка бота</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background: #f9f9f9; margin: 0; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .label { font-weight: bold; color: #2c3e50; margin-bottom: 8px; display: block; }
-        .value { background: #f0f0f0; padding: 12px; border-radius: 4px; white-space: pre-wrap; margin-bottom: 20px; border: 1px solid #eee; }
-        select { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 14px; background: #27ae60; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; margin-top: 10px; font-weight: 600; }
-        button:disabled { background: #95a5a6; cursor: not-allowed; }
-        .status { margin-top: 15px; text-align: center; font-weight: bold; font-size: 18px; }
-        .success { color: #27ae60; }
-        .error { color: #e74c3c; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Оценка бота</title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:20px;background:#f9f9f9}
+    .c{background:white;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+    .l{font-weight:700;color:#2c3e50;margin-bottom:8px}
+    .v{background:#f0f0f0;padding:12px;border-radius:4px;white-space:pre-wrap;margin-bottom:20px;border:1px solid #eee}
+    select,button{width:100%;padding:12px;font-size:16px;border-radius:4px;box-sizing:border-box;margin-top:8px}
+    select{border:1px solid #ccc}
+    button{background:#27ae60;color:white;border:none;cursor:pointer;font-weight:600}
+    button:disabled{background:#95a5a6;cursor:not-allowed}
+    .s{margin-top:15px;text-align:center;font-weight:700;font-size:18px}
+    .ok{color:#27ae60}
+    .no{color:#e74c3c}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="label">Вопрос клиента</div>
-        <div class="value" id="question">—</div>
+  <div class="c">
+    <div class="l">Вопрос клиента</div>
+    <div class="v" id="q">—</div>
+    <div class="l">Ответ бота</div>
+    <div class="v" id="a" style="background:#e8f5e9;border-color:#c8e6c9">—</div>
+    <div class="l">Ответ бота правильный?</div>
+    <select id="s">
+      <option value="" disabled selected>Выберите</option>
+      <option value="Да">Да</option>
+      <option value="Нет">Нет</option>
+    </select>
+    <button id="b">Оценить</button>
+    <div id="st" class="s"></div>
+  </div>
 
-        <div class="label">Ответ бота</div>
-        <div class="value" id="answer" style="background:#e8f5e9; border-color:#c8e6c9;">—</div>
+  <script>
+    const u = new URLSearchParams(location.search);
+    const tid = u.get('ticket_id');
+    document.getElementById('q').textContent = decodeURIComponent(u.get('question') || '—').replace(/\+/g,' ');
+    document.getElementById('a').textContent = decodeURIComponent(u.get('answer') || '—').replace(/\+/g,' ');
 
-        <div class="label">Ответ бота правильный?</div>
-        <select id="select">
-            <option value="" disabled selected>Выберите вариант</option>
-            <option value="Да">Да</option>
-            <option value="Нет">Нет</option>
-        </select>
+    document.getElementById('b').onclick = async () => {
+      const val = document.getElementById('s').value;
+      if (!val) return document.getElementById('st').innerHTML = '<span class="no">Выберите Да/Нет</span>';
+      if (!tid) return document.getElementById('st').innerHTML = '<span class="no">Нет ID тикета</span>';
 
-        <button id="btn">Оценить</button>
-        <div id="status" class="status"></div>
-    </div>
+      const btn = document.getElementById('b');
+      btn.disabled = true; btn.textContent = 'Отправка...';
 
-    <script>
-        // Сообщаем родительскому окну (Usedesk) о нашей высоте
-        function resize() {
-            parent.postMessage({ type: 'iframe-resize', height: document.body.scrollHeight + 20 }, '*');
-        }
-        window.addEventListener('load', resize);
-        window.addEventListener('resize', resize);
-
-        // Параметры из URL
-        const params = new URLSearchParams(location.search);
-        const ticketId = params.get('ticket_id');
-        const question = params.get('question') || '—';
-        const answer = params.get('answer') || '—';
-
-        document.getElementById('question').textContent = decodeURIComponent(question.replace(/\+/g, ' '));
-        document.getElementById('answer').textContent = decodeURIComponent(answer.replace(/\+/g, ' '));
-
-        const btn = document.getElementById('btn');
-        const select = document.getElementById('select');
-        const status = document.getElementById('status');
-
-        btn.onclick = async () => {
-            const value = select.value;
-            if (!value) {
-                status.innerHTML = '<span class="error">Выберите Да или Нет!</span>';
-                return;
-            }
-            if (!ticketId) {
-                status.innerHTML = '<span class="error">Ошибка: нет ID тикета</span>';
-                return;
-            }
-
-            btn.disabled = true;
-            btn.textContent = 'Отправка...';
-            status.innerHTML = '';
-
-            const payload = {
-                api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
-                ticket_id: ticketId,
-                field_id: '28201',
-                field_value: value
-            };
-
-            try {
-                const r = await fetch('https://api.usedesk.ru/update/ticket', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-
-                if (r.ok) {
-                    status.innerHTML = '<span class="success">Оценка проставлена</span>';
-                    select.disabled = true;
-                    btn.style.background = '#1e8449';
-                    btn.textContent = 'Готово';
-
-                    // Перезагружаем только iframe, чтобы Usedesk подхватил новое значение поля
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1500);
-                } else {
-                    throw new Error();
-                }
-            } catch (e) {
-                status.innerHTML = '<span class="error">Ошибка сети или API</span>';
-                btn
+      try {
+        const r = await fetch('https://api.usedesk.ru/update/ticket', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
+            ticket_id: tid,
+            field_id: '28201',
+            field_value: val
+          })
+        });
+        if (r.ok) {
+          document.getElementById('st').innerHTML = '<span class="ok">Оценка проставлена</span>';
+          btn.style.background = '#1e8449';
+          btn.textContent = 'Готово';
+          document.getElementById('s').disabled = true;
+        } else throw '';
+      } catch {
+        document.getElementById('st').innerHTML = '<span class="no">Ошибка</span>';
+        btn.disabled = false;
+        btn.textContent = 'Оценить';
+      }
+    };
+  </script>
+</body>
+</html>
