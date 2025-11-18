@@ -17,7 +17,7 @@
 </head>
 <body>
   <select id="s">
-    <option value="" disabled selected>Выберите</option>
+    <option value="" disabled>Выберите</option>
     <option value="Да">Да</option>
     <option value="Нет">Нет</option>
   </select>
@@ -27,6 +27,17 @@
   <script>
     const u = new URLSearchParams(location.search);
     const tid = u.get('ticket_id');
+    const preset = u.get('preset'); // ← новая строка
+
+    // ← автоматически выбираем, если поле уже заполнено
+    if (preset === 'Да' || preset === 'Нет') {
+      document.getElementById('s').value = preset;
+      document.getElementById('s').disabled = true;
+      document.getElementById('b').textContent = 'Готово';
+      document.getElementById('b').disabled = true;
+      document.getElementById('st').innerHTML = '<span class="ok">Оценка уже проставлена</span>';
+    }
+
     document.getElementById('b').onclick = async () => {
       const val = document.getElementById('s').value;
       if (!val || !tid) return document.getElementById('st').innerHTML = '<span class="no">Ошибка</span>';
