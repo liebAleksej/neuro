@@ -92,18 +92,14 @@
           });
         }
 
-        // Успех — блокируем всё локально навсегда
-        status.innerHTML = '<span class="ok">Оценка сохранена</span>';
-        btn.style.background = '#1e8449';
-        btn.textContent = 'Готово';
-        select.disabled = true;
-        textarea.disabled = true;
-
-        // НЕ рефрешим iframe автоматически — пусть пользователь сам сделает F5
-        // После F5 всё подгрузится правильно
-
-      } catch (e) {
-        status.innerHTML = '<span class="no">Ошибка сети</span>';
+       if (r.ok) {
+          document.getElementById('st').innerHTML = '<span class="ok">Оценка проставлена</span>';
+          btn.style.background = '#1e8449';
+          btn.textContent = 'Готово';
+          document.getElementById('s').disabled = true;
+        } else throw '';
+      } catch {
+        document.getElementById('st').innerHTML = '<span class="no">Ошибка сети</span>';
         btn.disabled = false;
         btn.textContent = 'Оценить';
       }
