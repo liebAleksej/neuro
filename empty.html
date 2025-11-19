@@ -31,30 +31,34 @@
   <script>
     const u = new URLSearchParams(location.search);
     const tid = u.get('ticket_id');
-    const preset28201 = (u.get('preset') || '').trim();  // значение из 28201
+    const preset = (u.get('preset') || '').trim();  // из 28201
+    const savedComment = u.get('comment') || '';    // из 29964
 
     const select = document.getElementById('s');
     const textarea = document.getElementById('c');
     const btn = document.getElementById('b');
     const status = document.getElementById('st');
 
-    let alreadyRated = false;
+    let submitted = false;
 
-    // Если в 28201 уже есть оценка — блокируем форму
-    if (preset28201 && (preset28201.startsWith('Да') || preset28201.startsWith('Нет'))) {
-      const parts = preset28201.split(';');
-      select.value = parts[0].trim();
-      textarea.value = parts.slice(1).join(';').trim();
-      select.disabled = textarea.disabled = btn.disabled = true;
+    // Предзаполнение
+    if (preset && (preset === 'Да' || preset === 'Нет')) {
+      select.value = preset;
+      select.disabled = true;
+      textarea.value = savedComment;
+      textarea.disabled = true;
       btn.textContent = 'Готово';
+      btn.disabled = true;
       status.innerHTML = '<span class="ok">Оценка уже проставлена</span>';
-      alreadyRated = true;
+      submitted = true;
+    } else {
+      textarea.value = savedComment;
     }
 
     btn.onclick = async () => {
-      if (alreadyRated) return;
+      if (submitted) return;
 
-      const val = select.value;           // Да или Нет
+      const val = select.value;
       const comment = textarea.value.trim();
 
       if (!val) {
@@ -62,33 +66,46 @@
         return;
       }
 
-      const fieldIds   = '28201;29964';                                   // два поля
-      const fieldVals  = comment ? `${val};${comment}` : `${val};`;      // Да;коммент или Да;
-
       btn.disabled = true;
       btn.textContent = 'Отправка...';
+      status.innerHTML = '';
 
       try {
-        const r = await fetch('https://api.usedesk.ru/update/ticket', {
+        // 1. Сохраняем оценку в 28201
+        const r1 = await fetch('https://api.usedesk.ru/update/ticket', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
             api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
             ticket_id: tid,
-            field_id: fieldIds,
-            field_value: fieldVals
+            field_id: '28201',
+            field_value: val
           })
         });
 
-        if (r.ok) {
+        // 2. Сохраняем комментарий в 29964 (если есть)
+        if (comment && r1.ok) {
+          await fetch('https://api.usedesk.ru/update/ticket', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
+              ticket_id: tid,
+              field_id: '29964',
+              field_value: comment
+            })
+          });
+        }
+
+        if (r1.ok) {
           status.innerHTML = '<span class="ok">Оценка и комментарий сохранены</span>';
           btn.style.background = '#1e8449';
           btn.textContent = 'Готово';
           select.disabled = textarea.disabled = true;
+          submitted = true;
           setTimeout(() => location.reload(), 800);
-        } else {
-          throw new Error();
-        }
+        },
+        else throw '';
       } catch {
         status.innerHTML = '<span class="no">Ошибка</span>';
         btn.disabled = false;
