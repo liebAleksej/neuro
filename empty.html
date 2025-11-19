@@ -19,7 +19,7 @@
 <body>
   <select id="s">
     <option value="" disabled selected>Выберите</option>
-    <option value="Да">Да</option>
+    <option value="Да</option>
     <option value="Нет">Нет</option>
   </select>
 
@@ -31,33 +31,28 @@
   <script>
     const u = new URLSearchParams(location.search);
     const tid = u.get('ticket_id');
-    const preset = (u.get('preset') || '').trim();      // значение из 28201
-    const commentFromTicket = u.get('comment') || '';   // значение из 29964
+    const preset = (u.get('preset') || '').trim();      
+    const savedComment = u.get('comment') || '';          
 
     const select = document.getElementById('s');
     const textarea = document.getElementById('c');
     const btn = document.getElementById('b');
     const status = document.getElementById('st');
 
-    let submitted = false;
-
     // Предзаполнение
-    if (preset && (preset === 'Да' || preset === 'Нет')) {
+    if (preset === 'Да' || preset === 'Нет') {
       select.value = preset;
       select.disabled = true;
-      textarea.value = commentFromTicket;
+      textarea.value = savedComment;
       textarea.disabled = true;
       btn.textContent = 'Готово';
       btn.disabled = true;
       status.innerHTML = '<span class="ok">Оценка уже проставлена</span>';
-      submitted = true;
     } else {
-      textarea.value = commentFromTicket;
+      textarea.value = savedComment;
     }
 
     btn.onclick = async () => {
-      if (submitted) return;
-
       const val = select.value;
       const comment = textarea.value.trim();
 
@@ -71,7 +66,7 @@
       status.innerHTML = '';
 
       try {
-        // 1. Обновляем оценку (28201)
+        // 1. Оценка
         const r1 = await fetch('https://api.usedesk.ru/update/ticket', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -83,8 +78,8 @@
           })
         });
 
-        // 2. Обновляем комментарий (29964), если есть текст
-        if (comment && r1.ok) {
+        // 2. Комментарий (если есть)
+        if (comment) {
           await fetch('https://api.usedesk.ru/update/ticket', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -98,18 +93,17 @@
         }
 
         if (r1.ok) {
-          status.innerHTML = '<span class="ok">Оценка и комментарий сохранены</span>';
+          status.innerHTML = '<span class="ok">Сохранено! Тикет обновляется...</span>';
           btn.style.background = '#1e8449';
           btn.textContent = 'Готово';
           select.disabled = true;
           textarea.disabled = true;
-          submitted = true;
-          setTimeout(() => location.reload(), 800);
-        } else {
-          throw new Error();
-        }
-      } catch (e) {
-        status.innerHTML = '<span class="no">Ошибка сети</span>';
+
+          // Перезагружаем ВЕСЬ тикет (не только iframe)
+          setTimeout(() => parent.location.reload(), 1000);
+        } else throw '';
+      } catch {
+        status.innerHTML = '<span class="no">Ошибка</span>';
         btn.disabled = false;
         btn.textContent = 'Оценить';
       }
