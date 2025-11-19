@@ -6,8 +6,9 @@
   <title>Оценка</title>
   <style>
     body{margin:0;padding:20px;background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-    select,button{width:100%;padding:12px;font-size:16px;border-radius:6px;box-sizing:border-box;margin-top:8px}
-    select{border:1px solid #ced4da}
+    select,textarea,button{width:100%;padding:12px;font-size:16px;border-radius:6px;box-sizing:border-box;margin-top:8px}
+    select,textarea{border:1px solid #ced4da}
+    textarea{resize:vertical;min-height:80px;font-family:inherit}
     button{background:#27ae60;color:white;border:none;cursor:pointer;font-weight:600}
     button:disabled{background:#95a5a6;cursor:not-allowed}
     .s{margin-top:12px;text-align:center;font-weight:700;font-size:17px}
@@ -21,49 +22,70 @@
     <option value="Да">Да</option>
     <option value="Нет">Нет</option>
   </select>
+
+  <textarea id="c" placeholder="Комментарий (необязательно)"></textarea>
+
   <button id="b">Оценить</button>
   <div id="st" class="s"></div>
 
   <script>
     const u = new URLSearchParams(location.search);
     const tid = u.get('ticket_id');
-    const preset = u.get('preset'); // ← новая строка
+    const preset = u.get('preset');
+    const savedComment = u.get('comment') || '';
 
-    // ← автоматически выбираем, если поле уже заполнено
+    const select = document.getElementById('s');
+    const textarea = document.getElementById('c');
+    const btn = document.getElementById('b');
+    const status = document.getElementById('st');
+
+    // Если оценка уже была — блокируем всё
     if (preset === 'Да' || preset === 'Нет') {
-      document.getElementById('s').value = preset;
-      document.getElementById('s').disabled = true;
-      document.getElementById('b').textContent = 'Готово';
-      document.getElementById('b').disabled = true;
-      document.getElementById('st').innerHTML = '<span class="ok">Оценка уже проставлена</span>';
+      select.value = preset;
+      select.disabled = true;
+      textarea.value = savedComment;
+      textarea.disabled = true;
+      btn.textContent = 'Готово';
+      btn.disabled = true;
+      status.innerHTML = '<span class="ok">Оценка уже проставлена</span>';
+    } else {
+      textarea.value = savedComment; // если комментарий был, но оценки ещё нет
     }
 
-    document.getElementById('b').onclick = async () => {
-      const val = document.getElementById('s').value;
-      if (!val || !tid) return document.getElementById('st').innerHTML = '<span class="no">Ошибка</span>';
-      
-      const btn = document.getElementById('b');
-      btn.disabled = true; btn.textContent = 'Отправка...';
+    btn.onclick = async () => {
+      const val = select.value;
+      const comment = textarea.value.trim();
+
+      if (!val) return status.innerHTML = '<span class="no">Выберите Да или Нет</span>';
+
+      btn.disabled = true;
+      btn.textContent = 'Отправка...';
+
+      const payload = {
+        api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
+        ticket_id: tid,
+        updates: [
+          { field_id: '28201', field_value: val },
+          { field_id: '29964', field_value: comment }
+        ]
+      };
 
       try {
         const r = await fetch('https://api.usedesk.ru/update/ticket', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
-            ticket_id: tid,
-            field_id: '28201',
-            field_value: val
-          })
+          body: JSON.stringify(payload)
         });
+
         if (r.ok) {
-          document.getElementById('st').innerHTML = '<span class="ok">Оценка проставлена</span>';
+          status.innerHTML = '<span class="ok">Оценка и комментарий сохранены</span>';
           btn.style.background = '#1e8449';
           btn.textContent = 'Готово';
-          document.getElementById('s').disabled = true;
+          select.disabled = true;
+          textarea.disabled = true;
         } else throw '';
       } catch {
-        document.getElementById('st').innerHTML = '<span class="no">Ошибка сети</span>';
+        status.innerHTML = '<span class="no">Ошибка сети</span>';
         btn.disabled = false;
         btn.textContent = 'Оценить';
       }
