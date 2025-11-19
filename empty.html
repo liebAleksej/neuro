@@ -31,7 +31,7 @@
   <script>
     const u = new URLSearchParams(location.search);
     const tid = u.get('ticket_id');
-    const preset = u.get('preset');
+    const preset = u.get('preset') || '';
     const savedComment = u.get('comment') || '';
 
     const select = document.getElementById('s');
@@ -39,7 +39,7 @@
     const btn = document.getElementById('b');
     const status = document.getElementById('st');
 
-    // Если оценка уже была — блокируем всё
+    // Предзаполняем
     if (preset === 'Да' || preset === 'Нет') {
       select.value = preset;
       select.disabled = true;
@@ -49,50 +49,67 @@
       btn.disabled = true;
       status.innerHTML = '<span class="ok">Оценка уже проставлена</span>';
     } else {
-      textarea.value = savedComment; // если комментарий был, но оценки ещё нет
+      textarea.value = savedComment;
     }
+    const fieldValue = comment ? `${val}; ${comment}` : val;
 
     btn.onclick = async () => {
       const val = select.value;
       const comment = textarea.value.trim();
 
-      if (!val) return status.innerHTML = '<span class="no">Выберите Да или Нет</span>';
+      if (!val) {
+        status.innerHTML = '<span class="no">Выберите Да или Нет</span>';
+        return;
+      }
 
       btn.disabled = true;
       btn.textContent = 'Отправка...';
+      status.innerHTML = '';
 
-      const payload = {
-        api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
-        ticket_id: tid,
-        updates: [
-          { field_id: '28201', field_value: val },
-          { field_id: '29964', field_value: comment }
-        ]
-      };
-
+      // ← ВЕРНУЛ СТАРЫЙ РАБОЧИЙ ФОРМАТ (по одному полю за раз)
       try {
-        const r = await fetch('https://api.usedesk.ru/update/ticket', {
+        // Сначала оценка
+        let r1 = await fetch('https://api.usedesk.ru/update/ticket', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
+            ticket_id: tid,
+            field_id: '28201;29964',
+            field_value: fieldValue
+          })
         });
 
-        if (r.ok) {
+        // Затем комментарий (если есть)
+        if (comment && r1.ok) {
+          await fetch('https://api.usedesk.ru/update/ticket', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
+              ticket_id: tid,
+              field_id: '29964',
+              field_value: comment
+            })
+          });
+        }
+
+        if (r1.ok) {
           status.innerHTML = '<span class="ok">Оценка и комментарий сохранены</span>';
           btn.style.background = '#1e8449';
           btn.textContent = 'Готово';
           select.disabled = true;
           textarea.disabled = true;
+
+          // Принудительно рефрешим iframe, чтобы Usedesk подхватил новые значения
+          setTimeout(() => location.reload(), 800);
         } else throw '';
-      } catch {
-        status.innerHTML = '<span class="no">Ошибка сети</span>';
+      } catch(e) {
+        status.innerHTML = '<span class="no">Ошибка сети или API</span>';
         btn.disabled = false;
         btn.textContent = 'Оценить';
       }
     };
-  </script>
-</body>
-</html>
   </script>
 </body>
 </html>
