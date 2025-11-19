@@ -31,8 +31,8 @@
   <script>
     const u = new URLSearchParams(location.search);
     const tid = u.get('ticket_id');
-    const preset = (u.get('preset') || '').trim();  // из 28201
-    const savedComment = u.get('comment') || '';    // из 29964
+    const preset = (u.get('preset') || '').trim();      // значение из 28201
+    const commentFromTicket = u.get('comment') || '';   // значение из 29964
 
     const select = document.getElementById('s');
     const textarea = document.getElementById('c');
@@ -45,14 +45,14 @@
     if (preset && (preset === 'Да' || preset === 'Нет')) {
       select.value = preset;
       select.disabled = true;
-      textarea.value = savedComment;
+      textarea.value = commentFromTicket;
       textarea.disabled = true;
       btn.textContent = 'Готово';
       btn.disabled = true;
       status.innerHTML = '<span class="ok">Оценка уже проставлена</span>';
       submitted = true;
     } else {
-      textarea.value = savedComment;
+      textarea.value = commentFromTicket;
     }
 
     btn.onclick = async () => {
@@ -71,10 +71,10 @@
       status.innerHTML = '';
 
       try {
-        // 1. Сохраняем оценку в 28201
+        // 1. Обновляем оценку (28201)
         const r1 = await fetch('https://api.usedesk.ru/update/ticket', {
           method: 'POST',
-          headers: {'Content-Type':'application/json'},
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
             ticket_id: tid,
@@ -83,11 +83,11 @@
           })
         });
 
-        // 2. Сохраняем комментарий в 29964 (если есть)
+        // 2. Обновляем комментарий (29964), если есть текст
         if (comment && r1.ok) {
           await fetch('https://api.usedesk.ru/update/ticket', {
             method: 'POST',
-            headers: {'Content-Type':'application/json'},
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
               api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
               ticket_id: tid,
@@ -101,13 +101,15 @@
           status.innerHTML = '<span class="ok">Оценка и комментарий сохранены</span>';
           btn.style.background = '#1e8449';
           btn.textContent = 'Готово';
-          select.disabled = textarea.disabled = true;
+          select.disabled = true;
+          textarea.disabled = true;
           submitted = true;
           setTimeout(() => location.reload(), 800);
-        },
-        else throw '';
-      } catch {
-        status.innerHTML = '<span class="no">Ошибка</span>';
+        } else {
+          throw new Error();
+        }
+      } catch (e) {
+        status.innerHTML = '<span class="no">Ошибка сети</span>';
         btn.disabled = false;
         btn.textContent = 'Оценить';
       }
