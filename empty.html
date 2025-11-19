@@ -80,20 +80,6 @@
           })
         });
 
-        // Затем комментарий (если есть)
-        if (comment && r1.ok) {
-          await fetch('https://api.usedesk.ru/update/ticket', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({
-              api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
-              ticket_id: tid,
-              field_id: '29964',
-              field_value: comment
-            })
-          });
-        }
-
         if (r1.ok) {
           status.innerHTML = '<span class="ok">Оценка и комментарий сохранены</span>';
           btn.style.background = '#1e8449';
