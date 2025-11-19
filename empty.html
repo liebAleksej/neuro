@@ -31,27 +31,29 @@
   <script>
     const u = new URLSearchParams(location.search);
     const tid = u.get('ticket_id');
-    const preset = u.get('preset') || '';
-    const savedComment = u.get('comment') || '';
+    const preset = u.get('preset') || '';  // значение из 28201
 
     const select = document.getElementById('s');
     const textarea = document.getElementById('c');
     const btn = document.getElementById('b');
     const status = document.getElementById('st');
 
-    // Предзаполняем
-    if (preset === 'Да' || preset === 'Нет') {
-      select.value = preset;
-      select.disabled = true;
-      textarea.value = savedComment;
-      textarea.disabled = true;
-      btn.textContent = 'Готово';
-      btn.disabled = true;
-      status.innerHTML = '<span class="ok">Оценка уже проставлена</span>';
-    } else {
-      textarea.value = savedComment;
+    // Предзаполнение, если оценка уже есть
+    if (preset) {
+      const parts = preset.split('; ');
+      const savedVal = parts[0];
+      const savedComment = parts.slice(1).join('; ');
+
+      if (savedVal === 'Да' || savedVal === 'Нет') {
+        select.value = savedVal;
+        select.disabled = true;
+        textarea.value = savedComment || '';
+        textarea.disabled = true;
+        btn.textContent = 'Готово';
+        btn.disabled = true;
+        status.innerHTML = '<span class="ok">Оценка уже проставлена</span>';
+      }
     }
-    const fieldValue = comment ? `${val}; ${comment}` : val;
 
     btn.onclick = async () => {
       const val = select.value;
@@ -62,36 +64,36 @@
         return;
       }
 
+      // ← Вот то, что тебе нужно:
+      const fieldIds = '28201;29964';                    // два ID через ;
+      const fieldValues = comment ? `${val}; ${comment}` : val;  // Да; текст или просто Да
+
       btn.disabled = true;
       btn.textContent = 'Отправка...';
       status.innerHTML = '';
 
-      // ← ВЕРНУЛ СТАРЫЙ РАБОЧИЙ ФОРМАТ (по одному полю за раз)
       try {
-        // Сначала оценка
-        let r1 = await fetch('https://api.usedesk.ru/update/ticket', {
+        const r = await fetch('https://api.usedesk.ru/update/ticket', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
             api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
             ticket_id: tid,
-            field_id: '28201;29964',
-            field_value: fieldValue
+            field_id: fieldIds,        // ← строка "28201;29964"
+            field_value: fieldValues   // ← строка "Да; плохой ответ"
           })
         });
 
-        if (r1.ok) {
+        if (r.ok) {
           status.innerHTML = '<span class="ok">Оценка и комментарий сохранены</span>';
           btn.style.background = '#1e8449';
           btn.textContent = 'Готово';
           select.disabled = true;
           textarea.disabled = true;
-
-          // Принудительно рефрешим iframe, чтобы Usedesk подхватил новые значения
           setTimeout(() => location.reload(), 800);
         } else throw '';
-      } catch(e) {
-        status.innerHTML = '<span class="no">Ошибка сети или API</span>';
+      } catch {
+        status.innerHTML = '<span class="no">Ошибка</span>';
         btn.disabled = false;
         btn.textContent = 'Оценить';
       }
