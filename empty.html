@@ -19,7 +19,7 @@
 <body>
   <select id="s">
     <option value="" disabled selected>Выберите</option>
-    <option value="Да</option>
+    <option value="Да">Да</option>
     <option value="Нет">Нет</option>
   </select>
 
@@ -31,15 +31,15 @@
   <script>
     const u = new URLSearchParams(location.search);
     const tid = u.get('ticket_id');
-    const preset = (u.get('preset') || '').trim();      
-    const savedComment = u.get('comment') || '';          
+    const preset = (u.get('preset') || '').trim();
+    const savedComment = u.get('comment') || '';
 
     const select = document.getElementById('s');
     const textarea = document.getElementById('c');
     const btn = document.getElementById('b');
     const status = document.getElementById('st');
 
-    // Предзаполнение
+    // Предзаполнение при загрузке (если уже оценили)
     if (preset === 'Да' || preset === 'Нет') {
       select.value = preset;
       select.disabled = true;
@@ -66,7 +66,7 @@
       status.innerHTML = '';
 
       try {
-        // 1. Оценка
+        // 1. Сохраняем оценку
         const r1 = await fetch('https://api.usedesk.ru/update/ticket', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -78,7 +78,7 @@
           })
         });
 
-        // 2. Комментарий (если есть)
+        // 2. Сохраняем комментарий (если есть)
         if (comment) {
           await fetch('https://api.usedesk.ru/update/ticket', {
             method: 'POST',
@@ -92,18 +92,18 @@
           });
         }
 
-        if (r1.ok) {
-          status.innerHTML = '<span class="ok">Сохранено! Тикет обновляется...</span>';
-          btn.style.background = '#1e8449';
-          btn.textContent = 'Готово';
-          select.disabled = true;
-          textarea.disabled = true;
+        // Успех — блокируем всё локально навсегда
+        status.innerHTML = '<span class="ok">Оценка сохранена</span>';
+        btn.style.background = '#1e8449';
+        btn.textContent = 'Готово';
+        select.disabled = true;
+        textarea.disabled = true;
 
-          // Перезагружаем ВЕСЬ тикет (не только iframe)
-          setTimeout(() => parent.location.reload(), 1000);
-        } else throw '';
-      } catch {
-        status.innerHTML = '<span class="no">Ошибка</span>';
+        // НЕ рефрешим iframe автоматически — пусть пользователь сам сделает F5
+        // После F5 всё подгрузится правильно
+
+      } catch (e) {
+        status.innerHTML = '<span class="no">Ошибка сети</span>';
         btn.disabled = false;
         btn.textContent = 'Оценить';
       }
