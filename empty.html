@@ -31,28 +31,26 @@
   <script>
     const u = new URLSearchParams(location.search);
     const tid = u.get('ticket_id');
-    const preset = u.get('preset') || '';  // значение из 28201
+    const preset = (u.get('preset') || '').trim();
 
     const select = document.getElementById('s');
     const textarea = document.getElementById('c');
     const btn = document.getElementById('b');
     const status = document.getElementById('st');
 
-    // Предзаполнение, если оценка уже есть
-    if (preset) {
+    // Правильный парсинг значения из 28201
+    if (preset && (preset.startsWith('Да') || preset.startsWith('Нет'))) {
       const parts = preset.split('; ');
-      const savedVal = parts[0];
-      const savedComment = parts.slice(1).join('; ');
+      const savedVal = parts[0];                     // "Да" или "Нет"
+      const savedComment = parts.length > 1 ? parts.slice(1).join('; ') : '';
 
-      if (savedVal === 'Да' || savedVal === 'Нет') {
-        select.value = savedVal;
-        select.disabled = true;
-        textarea.value = savedComment || '';
-        textarea.disabled = true;
-        btn.textContent = 'Готово';
-        btn.disabled = true;
-        status.innerHTML = '<span class="ok">Оценка уже проставлена</span>';
-      }
+      select.value = savedVal;
+      select.disabled = true;
+      textarea.value = savedComment;
+      textarea.disabled = true;
+      btn.textContent = 'Готово';
+      btn.disabled = true;
+      status.innerHTML = '<span class="ok">Оценка уже проставлена</span>';
     }
 
     btn.onclick = async () => {
@@ -64,9 +62,7 @@
         return;
       }
 
-      // ← Вот то, что тебе нужно:
-      const fieldIds = '28201;29964';                    // два ID через ;
-      const fieldValues = comment ? `${val}; ${comment}` : val;  // Да; текст или просто Да
+      const fieldValue = comment ? `${val}; ${comment}` : val;
 
       btn.disabled = true;
       btn.textContent = 'Отправка...';
@@ -79,21 +75,23 @@
           body: JSON.stringify({
             api_token: 'd1be8720080dd84da7b1f33604eda8daf309b78e',
             ticket_id: tid,
-            field_id: fieldIds,        // ← строка "28201;29964"
-            field_value: fieldValues   // ← строка "Да; плохой ответ"
+            field_id: '28201',
+            field_value: fieldValue
           })
         });
 
         if (r.ok) {
-          status.innerHTML = '<span class="ok">Оценка и комментарий сохранены</span>';
+          status.innerHTML = '<span class="ok">Оценка сохранена</span>';
           btn.style.background = '#1e8449';
           btn.textContent = 'Готово';
           select.disabled = true;
           textarea.disabled = true;
           setTimeout(() => location.reload(), 800);
-        } else throw '';
+        } else {
+          throw new Error();
+        }
       } catch {
-        status.innerHTML = '<span class="no">Ошибка</span>';
+        status.innerHTML = '<span class="no">Ошибка сети или API</span>';
         btn.disabled = false;
         btn.textContent = 'Оценить';
       }
