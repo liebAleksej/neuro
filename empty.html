@@ -57,9 +57,11 @@
       const comment = textarea.value.trim();
 
       if (!val) {
-        status.innerHTML = '<span class="no">Выберите Да или Нет</span>';
-        return;
-      }
+  status.innerHTML = '<span class="no">Выберите Да или Нет</span>';
+  btn.disabled = true;           // ← сразу блокируем кнопку
+  btn.textContent = 'Недоступно'; // ← можно поменять текст
+  return;
+}
 
       btn.disabled = true;
       btn.textContent = 'Отправка...';
