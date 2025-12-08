@@ -39,6 +39,9 @@
     const btn = document.getElementById('b');
     const status = document.getElementById('st');
 
+    // флаг прогресса — предотвращает повторные нажатия
+    let inProgress = false;
+
     // Предзаполнение при загрузке (если уже оценили)
     if (preset === 'Да' || preset === 'Нет') {
       select.value = preset;
@@ -53,17 +56,23 @@
     }
 
     btn.onclick = async () => {
+      // защита от повторных нажатий
+      if (inProgress) return;
+      inProgress = true;
+      btn.disabled = true;
+
       const val = select.value;
       const comment = textarea.value.trim();
 
       if (!val) {
-  status.innerHTML = '<span class="no">Выберите Да или Нет</span>';
-  btn.disabled = true;           // ← сразу блокируем кнопку
-  btn.textContent = 'Недоступно'; // ← можно поменять текст
-  return;
-}
+        status.innerHTML = '<span class="no">Выберите Да или Нет</span>';
+        // оставляем inProgress = false, чтобы пользователь мог исправить выбор и отправить снова
+        inProgress = false;
+        btn.disabled = false;
+        btn.textContent = 'Оценить';
+        return;
+      }
 
-      btn.disabled = true;
       btn.textContent = 'Отправка...';
       status.innerHTML = '';
 
@@ -80,9 +89,20 @@
           })
         });
 
+        // читаем JSON-ответ (если тело отсутствует или не JSON — поймаем ошибку и получим null)
+        let data1 = null;
+        try { data1 = await r1.clone().json(); } catch (e) { data1 = null; }
+
+        // считаем успехом только успешный HTTP-статус И отсутствие явной ошибки в теле
+        if (!r1.ok || (data1 && (data1.error || data1.success === false))) {
+          // считаем это ошибкой
+          throw new Error('rating_failed');
+        }
+
+        let commentSent = false;
         // 2. Сохраняем комментарий (если есть)
         if (comment) {
-          await fetch('https://api.usedesk.ru/update/ticket', {
+          const r2 = await fetch('https://api.usedesk.ru/update/ticket', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -92,20 +112,41 @@
               field_value: comment
             })
           });
+
+          let data2 = null;
+          try { data2 = await r2.clone().json(); } catch (e) { data2 = null; }
+
+          if (!r2.ok || (data2 && (data2.error || data2.success === false))) {
+            // комментарий не отправлен — но оценка уже записана; показываем соответствующее сообщение
+            status.innerHTML = '<span class="ok">Оценка проставлена, но комментарий не отправлен</span>';
+            btn.style.background = '#1e8449';
+            btn.textContent = 'Готово';
+            select.disabled = true;
+            // не выключаем textarea, чтобы пользователь мог попробовать отправить комментарий снова
+            inProgress = false;
+            btn.disabled = false; // даём возможность отправить комментарий отдельно, если нужно
+            return;
+          } else {
+            commentSent = true;
+          }
         }
 
-       if (r1.ok) {
-          document.getElementById('st').innerHTML = '<span class="ok">Оценка проставлена</span>';
-          btn.style.background = '#1e8449';
-          btn.textContent = 'Готово';
-          document.getElementById('s').disabled = true;
-        } else throw '';
-      } catch {
-        document.getElementById('st').innerHTML = '<span class="no">Ошибка сети</span>';
+        // если дошли сюда — оценка успешна и (либо комментария нет, либо комментарий успешно отправлен)
+        status.innerHTML = '<span class="ok">Оценка проставлена</span>';
+        btn.style.background = '#1e8449';
+        btn.textContent = 'Готово';
+        select.disabled = true;
+        textarea.disabled = true; // ОТКЛЮЧАЕМ textarea после успешной отправки
+        // оставляем кнопку disabled и inProgress = true, чтобы повторные нажатия были невозможны
+      } catch (err) {
+        // аккуратный вывод ошибки — не всегда это сеть, но у нас общий текст
+        status.innerHTML = '<span class="no">Ошибка сети или сервера. Попробуйте ещё раз</span>';
         btn.disabled = false;
         btn.textContent = 'Оценить';
+        inProgress = false;
       }
     };
   </script>
 </body>
 </html>
+
